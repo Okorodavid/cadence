@@ -1,0 +1,209 @@
+// Cadence — AI Influencer + YouTube OS
+// SQLite for the local $0 demo. Swap `provider = "postgresql"` + a Postgres
+// DATABASE_URL and everything below works unchanged (no arrays / enums used,
+// so the schema is portable).
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  characters Character[]
+  brandKits  BrandKit[]
+  jobs       CalendarJob[]
+  assets     Asset[]
+  cadences   CadenceRule[]
+  spend      SpendLog[]
+}
+
+/// One row per billable action (a rendered job, a look book build). Estimated
+/// USD, not a real invoice — Higgsfield returns no per-request cost. The spend
+/// guard sums these for the current week against SPEND_CAP_USD_PER_WEEK.
+model SpendLog {
+  id          String   @id @default(cuid())
+  workspaceId String
+  jobId       String?
+  usd         Float
+  note        String   @default("")
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+}
+
+model Character {
+  id          String @id @default(cuid())
+  workspaceId String
+  name        String
+
+  /// Higgsfield Soul ID / custom_reference_id once training succeeds.
+  soulId String?
+
+  /// Profile picture shown across the app. Display only — it is not a
+  /// training input; identity comes from sourceImageUrls / the look book.
+  avatarUrl String?
+
+  /// JSON string[] — the locked look book. These URLs are the face reference
+  /// for every downstream generation (Soul `custom_reference_id` fallback and
+  /// Seedance `image_urls`).
+  lookbookImageUrls String @default("[]")
+
+  /// JSON string[] — the raw uploaded training photos.
+  sourceImageUrls String @default("[]")
+
+  /// "sapi:<Voice Name>" | "elevenlabs:<voice_id>" | null (provider default).
+  /// This character narrates every video, not only its UGC clips.
+  voiceId       String?
+  /// JSON VoiceSettings: { preset, speed, pitch, stability, style }.
+  voiceSettings String  @default("{}")
+  styleNotes    String  @default("")
+
+  createdAt DateTime @default(now())
+
+  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  jobs      CalendarJob[]
+
+  @@index([workspaceId])
+}
+
+model BrandKit {
+  id          String @id @default(cuid())
+  workspaceId String
+
+  niche       String @default("")
+  audience    String @default("")
+  tone        String @default("")
+  rpmCategory String @default("")
+  hookStyle   String @default("")
+
+  /// JSON string[]
+  bannedPhrases String @default("[]")
+  cta           String @default("")
+  /// JSON string[] of hex colors
+  colors String @default("[]")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+}
+
+/// "1 zach short/day, 3 ugc ads/week" — drives the Fill next 7 days button.
+model CadenceRule {
+  id          String  @id @default(cuid())
+  workspaceId String
+  mode        String // ugc_ad | faceless_yt | zach_short
+  perWeek     Int     @default(7)
+  enabled     Boolean @default(true)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+}
+
+model CalendarJob {
+  id          String     @id @default(cuid())
+  workspaceId String
+  characterId String?
+  date        DateTime
+  mode        String // ugc_ad | faceless_yt | zach_short
+  status      String     @default("idea") // idea|scripted|rendering|review|ready|failed
+
+  topic       String  @default("")
+  title       String  @default("")
+  hook        String  @default("")
+  script      String  @default("")
+  caption     String  @default("")
+  description String  @default("")
+  /// JSON string[]
+  tags String @default("[]")
+
+  voiceUrl     String?
+  videoUrl     String?
+  thumbnailUrl String?
+  srtUrl       String?
+
+  /// Mode-specific inputs (product url, competitor titles, offer line...)
+  inputs String @default("{}")
+
+  scheduledAt DateTime?
+  error       String?
+  /// Set while a worker holds the job, so two workers never grab the same one.
+  lockedAt  DateTime?
+  attempts  Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  character Character? @relation(fields: [characterId], references: [id])
+  scenes    Scene[]
+  logs      JobLog[]
+  assets    Asset[]
+
+  @@index([workspaceId, date])
+  @@index([status])
+}
+
+model Scene {
+  id    String @id @default(cuid())
+  jobId String
+  order Int
+
+  seconds      Float  @default(6)
+  narration    String @default("")
+  visualPrompt String @default("")
+  camera       String @default("slow push in")
+  onScreenText String @default("")
+
+  imageUrl String?
+  clipUrl  String?
+  audioUrl String?
+
+  status String  @default("pending") // pending|imaging|animating|done|failed
+  error  String?
+
+  job CalendarJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, order])
+  @@index([jobId])
+}
+
+model Asset {
+  id          String  @id @default(cuid())
+  workspaceId String
+  jobId       String?
+
+  kind String // image|clip|audio|video|thumbnail|caption|srt|zip
+  url  String
+  meta String @default("{}")
+
+  createdAt DateTime @default(now())
+
+  workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  job       CalendarJob? @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, kind])
+  @@index([jobId])
+}
+
+model JobLog {
+  id        String   @id @default(cuid())
+  jobId     String
+  level     String   @default("info") // info|warn|error
+  message   String
+  createdAt DateTime @default(now())
+
+  job CalendarJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+}

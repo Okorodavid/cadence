@@ -1,0 +1,122 @@
+@import "tailwindcss";
+
+/* Tailwind v4 generates utilities from these: bg-surface, border-line,
+   text-muted, text-accent, and so on. */
+@theme {
+  --color-ink: #06080f;
+  --color-surface: #0b0f1a;
+  --color-raise: #121826;
+  --color-raise2: #1a2233;
+  --color-line: #232c40;
+  --color-fg: #e8ecf5;
+  --color-muted: #8b96ad;
+  --color-faint: #5d687d;
+
+  --color-accent: #ffd54a;
+  --color-hot: #ff5b4a;
+  --color-cool: #4aa8ff;
+  --color-go: #35d6a4;
+  --color-violet: #a78bfa;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+html,
+body {
+  background: var(--color-ink);
+  color: var(--color-fg);
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: #000;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-line);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-line bg-surface;
+  }
+
+  .btn {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border
+      border-line bg-raise px-3 py-2 text-sm font-medium text-fg transition-colors
+      hover:bg-raise2 disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .btn-primary {
+    @apply border-transparent bg-accent text-black hover:bg-[#ffdf78];
+  }
+
+  .btn-danger {
+    @apply border-transparent bg-hot/15 text-hot hover:bg-hot/25;
+  }
+
+  .btn-ghost {
+    @apply border-transparent bg-transparent text-muted hover:bg-raise hover:text-fg;
+  }
+
+  .btn-sm {
+    @apply px-2.5 py-1.5 text-xs;
+  }
+
+  .input {
+    @apply w-full rounded-lg border border-line bg-raise px-3 py-2 text-sm text-fg
+      placeholder:text-faint focus:border-cool focus:outline-none;
+  }
+
+  .label {
+    @apply mb-1.5 block text-[11px] font-semibold tracking-wider text-faint uppercase;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10px]
+      font-semibold tracking-wide uppercase;
+  }
+
+  .panel-title {
+    @apply text-[11px] font-semibold tracking-wider text-faint uppercase;
+  }
+}
+
+/* A faint grid so empty calendar space still reads as a surface. */
+.grid-bg {
+  background-image:
+    linear-gradient(to right, #ffffff06 1px, transparent 1px),
+    linear-gradient(to bottom, #ffffff06 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+.animate-working {
+  animation: pulse-soft 1.4s ease-in-out infinite;
+}
